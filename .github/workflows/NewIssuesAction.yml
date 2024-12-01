@@ -1,0 +1,61 @@
+name: Move Issue to To Do
+
+on:
+  issues:
+    types:
+      - opened
+
+jobs:
+  move-issue-to-todo:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout the repository
+      uses: actions/checkout@v3
+
+    - name: Move issue to To Do column
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        # Get the issue ID
+        ISSUE_ID=$(gh api graphql -F owner='${{ github.repository_owner }}' \
+          -F repo='${{ github.event.repository.name }}' \
+          -F number=${{ github.event.issue.number }} \
+          -f query='
+            query($owner: String!, $repo: String!, $number: Int!) {
+              repository(owner: $owner, name: $repo) {
+                issue(number: $number) {
+                  id
+                }
+              }
+            }
+          ' --jq '.data.repository.issue.id')
+
+        # Get the To Do column ID
+        TODO_COLUMN_ID=$(gh api graphql -F owner='${{ github.repository_owner }}' \
+          -F repo='${{ github.event.repository.name }}' \
+          -f query='
+            query($owner: String!, $repo: String!) {
+              repository(owner: $owner, name: $repo) {
+                projectV2 {
+                  columns(first: 10) {
+                    nodes {
+                      id
+                      name
+                    }
+                  }
+                }
+              }
+            }
+          ' --jq '.data.repository.projectV2.columns.nodes[] | select(.name == "To Do") | .id')
+
+        # Add the issue to the To Do column
+        gh api graphql -F id="$TODO_COLUMN_ID" -F contentId="$ISSUE_ID" -f query='
+          mutation($id: ID!, $contentId: ID!) {
+            addProjectV2ItemById(input: {projectId: $id, contentId: $contentId}) {
+              item {
+                id
+              }
+            }
+          }
+        '
