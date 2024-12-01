@@ -47,7 +47,7 @@ jobs:
                 }
               }
             }
-          ' --jq '.data.repository.projectV2.columns.nodes[] | select(.name == "To Do") | .id')
+          ' --jq '.data.repository.projectV2.columns.nodes[] | select(.name == "Todo") | .id')
 
         # Add the issue to the To Do column
         gh api graphql -F id="$TODO_COLUMN_ID" -F contentId="$ISSUE_ID" -f query='
